@@ -1,0 +1,68 @@
+# Public edge for Leo: https://${LEO_EDGE_DOMAIN} → open-webui:8080.
+# Certificates come from the certbot service via the shared edge-certs volume.
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# Brute-force protection for the login endpoint (per client IP).
+limit_req_zone $binary_remote_addr zone=leo_login:10m rate=10r/m;
+
+server_tokens off;
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${LEO_EDGE_DOMAIN};
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${LEO_EDGE_DOMAIN};
+
+    ssl_certificate     /etc/leo-certs/fullchain.pem;
+    ssl_certificate_key /etc/leo-certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:leo_tls:10m;
+    ssl_session_timeout 1d;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    client_max_body_size 200m;   # book / file uploads
+
+    location = /api/v1/auths/signin {
+        limit_req zone=leo_login burst=5 nodelay;
+        limit_req_status 429;
+        proxy_pass http://open-webui:8080;
+        include /etc/nginx/leo_proxy.conf;
+    }
+
+    location / {
+        proxy_pass http://open-webui:8080;
+        include /etc/nginx/leo_proxy.conf;
+    }
+}
+
+# Anything else hitting this IP (scanners, wrong Host) gets nothing.
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    ssl_reject_handshake on;
+}
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    return 444;
+}

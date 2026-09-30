@@ -1,0 +1,135 @@
+{
+  "books": {
+    "18d95506dbb2b4f50a7046a056e7ede7b813bb729520626511d1fcbbd8dd213d": {
+      "slug": "linear-algebra-and-its-applications-4th-edition",
+      "title": "Linear Algebra and Its Applications, 4th Edition",
+      "author": "Gilbert Strang",
+      "source_file": "Gilbert Strang - Linear Algebra and Its Applications, 4th Edition (2006, Brooks Cole).pdf",
+      "ingested_at": "2026-09-26T12:40:25+09:00",
+      "mode": "balanced",
+      "chapters": [
+        {
+          "number": 1,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch01-preface.md",
+          "file_id": "18268d7e-95e8-4530-85bf-9d086ab5455c",
+          "chapter": "Preface",
+          "pages": 5,
+          "chars": 10901
+        },
+        {
+          "number": 2,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch02-chapter-1-matrices-and-gaussian-eliminat.md",
+          "file_id": "0a5c7f03-453b-4e68-b0ca-68dc84032d51",
+          "chapter": "Chapter 1 Matrices and Gaussian Elimination",
+          "pages": 76,
+          "chars": 192941
+        },
+        {
+          "number": 3,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch03-chapter-2-vector-spaces.md",
+          "file_id": "3569bc21-11c8-45ee-83a7-bcdc12f3ccd6",
+          "chapter": "Chapter 2 Vector Spaces",
+          "pages": 82,
+          "chars": 201022
+        },
+        {
+          "number": 4,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch04-chapter-3-orthogonality.md",
+          "file_id": "23caa254-b8d6-4e8b-88ad-3f3ec32e5fc1",
+          "chapter": "Chapter 3 Orthogonality",
+          "pages": 66,
+          "chars": 178232
+        },
+        {
+          "number": 5,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch05-chapter-4-determinants.md",
+          "file_id": "73ddd0ba-8a0b-4fa8-a880-acbf5f71d598",
+          "chapter": "Chapter 4 Determinants",
+          "pages": 35,
+          "chars": 86141
+        },
+        {
+          "number": 6,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch06-chapter-5-eigenvalues-and-eigenvectors.md",
+          "file_id": "1e664236-0f01-4b70-90b3-268ee019c2bc",
+          "chapter": "Chapter 5 Eigenvalues and Eigenvectors",
+          "pages": 85,
+          "chars": 224496
+        },
+        {
+          "number": 7,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch07-chapter-6-positive-de-nite-matrices.md",
+          "file_id": "e15502a3-073a-4d93-9184-afec3f60ef47",
+          "chapter": "Chapter 6 Positive Deﬁnite Matrices",
+          "pages": 45,
+          "chars": 126072
+        },
+        {
+          "number": 8,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch08-chapter-7-computations-with-matrices.md",
+          "file_id": "9a3759a3-d9a8-4e05-a996-f39967f5b968",
+          "chapter": "Chapter 7 Computations with Matrices",
+          "pages": 27,
+          "chars": 79870
+        },
+        {
+          "number": 9,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch09-chapter-8-linear-programming-and-game-th.md",
+          "file_id": "23aa19a4-9eaf-494f-b449-5e29a07c0880",
+          "chapter": "Chapter 8 Linear Programming and Game Theory",
+          "pages": 42,
+          "chars": 113238
+        },
+        {
+          "number": 10,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch10-appendix-a-intersection-sum-and-product.md",
+          "file_id": "9da25379-d705-457e-9bd9-d4ba64edb1e5",
+          "chapter": "Appendix A Intersection, Sum, and Product of Spaces",
+          "pages": 7,
+          "chars": 21027
+        },
+        {
+          "number": 11,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch11-appendix-b-the-jordan-form.md",
+          "file_id": "439cf7e9-8884-4e38-9a0d-938be4d51d14",
+          "chapter": "Appendix B The Jordan Form",
+          "pages": 7,
+          "chars": 18589
+        },
+        {
+          "number": 12,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch12-appendix-c-matrix-factorizations.md",
+          "file_id": "e40ce12c-dc40-4a0d-86e3-20910426f075",
+          "chapter": "Appendix C Matrix Factorizations",
+          "pages": 2,
+          "chars": 5114
+        },
+        {
+          "number": 13,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch13-appendix-d-glossary-a-dictionary-for-lin.md",
+          "file_id": "d60773d8-1d9e-43d1-baa3-cb8bc9d22227",
+          "chapter": "Appendix D Glossary: A Dictionary for Linear Algebra",
+          "pages": 9,
+          "chars": 25405
+        },
+        {
+          "number": 14,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch14-appendix-e-matlab-teaching-codes.md",
+          "file_id": "e610cb42-624e-42f9-a3ec-23ff5dbe5c18",
+          "chapter": "Appendix E MATLAB Teaching Codes",
+          "pages": 3,
+          "chars": 7976
+        },
+        {
+          "number": 15,
+          "file": "linear-algebra-and-its-applications-4th-edition__ch15-solutions-to-selected-exercises.md",
+          "file_id": "d96e7688-81f4-41c1-9960-d1cc4135df7d",
+          "chapter": "Solutions to Selected Exercises",
+          "pages": 48,
+          "chars": 147428
+        }
+      ]
+    }
+  },
+  "partial": {}
+}

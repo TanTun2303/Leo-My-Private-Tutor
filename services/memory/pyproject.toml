@@ -1,0 +1,39 @@
+[project]
+name = "leo-memory"
+version = "1.0.0"
+description = "Concise cross-chat memory for Leo: per-chat summaries, learner profile, pinned facts"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.141.1",
+  "uvicorn==0.54.0",
+  "psycopg[binary]==3.3.6",
+  "psycopg-pool==3.3.3",
+  "pgvector==0.5.0",
+  "numpy==2.5.3",
+  "httpx==0.28.1",
+  "pydantic==2.13.5",
+  "pydantic-settings==2.15.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.1.1"]
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = ["ignore::DeprecationWarning:fastapi.testclient", "ignore:Using `httpx` with `starlette.testclient`"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]  # formatter owns line length; prompt strings stay on one line

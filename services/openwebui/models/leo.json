@@ -1,0 +1,50 @@
+{
+  "id": "leo-study",
+  "base_model_id": "leo",
+  "name": "Leo",
+  "is_active": true,
+  "meta": {
+    "description": "Private math & algorithms tutor — fast by default, 🧠 Think for proofs.",
+    "profile_image_url": "/static/favicon.png",
+    "capabilities": {
+      "vision": true,
+      "file_upload": true,
+      "citations": true,
+      "web_search": true,
+      "code_interpreter": true,
+      "usage": true,
+      "builtin_tools": true,
+      "image_generation": false,
+      "memory": false
+    },
+    "builtinTools": {
+      "web_search": true,
+      "knowledge": true,
+      "code_interpreter": true,
+      "time": true,
+      "files": true,
+      "user_input": false,
+      "chats": false,
+      "memory": false,
+      "notes": false,
+      "channels": false,
+      "automations": false,
+      "calendar": false,
+      "notifications": false,
+      "subagents": false,
+      "tasks": false,
+      "image_generation": false
+    },
+    "defaultFeatureIds": ["web_search", "code_interpreter"],
+    "tags": [{"name": "leo"}]
+  },
+  "params": {
+    "function_calling": "native",
+    "temperature": 0.7,
+    "top_p": 0.8,
+    "top_k": 20,
+    "min_p": 0,
+    "presence_penalty": 1.5,
+    "max_tokens": 8192
+  }
+}

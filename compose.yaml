@@ -1,0 +1,425 @@
+name: leo
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+networks:
+  frontend: {}
+  egress: {}
+  backend:
+    internal: true
+  testnet:
+    internal: true
+
+volumes:
+  pgdata: {}
+  openwebui-data: {}
+  caddy-data: {}
+  caddy-config: {}
+  edge-certs: {}
+  edge-webroot: {}
+  letsencrypt: {}
+
+services:
+  caddy:
+    <<: *common
+    image: caddy:${CADDY_VERSION}
+    ports:
+      - "${LEO_BIND_ADDR}:${LEO_HTTPS_PORT}:443"
+      - "${LEO_BIND_ADDR}:${LEO_HTTP_PORT}:80"
+      - "${LEO_PUBLIC_BIND:-127.0.0.1}:${LEO_PUBLIC_PORT:-8442}:8442"   # remote access (see docs/OPERATIONS.md)
+    environment:
+      TZ: ${TZ}
+      LEO_DOMAIN: ${LEO_DOMAIN}
+      LEO_PUBLIC_HOST: ${LEO_PUBLIC_HOST:-127.0.0.1}
+      LEO_TAILSCALE_HOST: ${LEO_TAILSCALE_HOST:-127.0.0.2}
+      LEO_DEFAULT_SNI: ${LEO_DEFAULT_SNI:-${LEO_PUBLIC_HOST:-127.0.0.1}}   # the IP browsers use most (no SNI for IPs)
+    volumes:
+      - ./services/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [frontend]
+    depends_on:
+      open-webui: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "443"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── public edge (profile "edge"): https://${LEO_EDGE_DOMAIN} with a Let's Encrypt certificate ──
+  nginx:
+    <<: *common
+    profiles: [edge]
+    image: nginx:${NGINX_VERSION}
+    ports:
+      - "${LEO_EDGE_BIND:-127.0.0.1}:80:80"
+      - "${LEO_EDGE_BIND:-127.0.0.1}:443:443"
+    environment:
+      TZ: ${TZ}
+      LEO_EDGE_DOMAIN: ${LEO_EDGE_DOMAIN}
+      NGINX_ENVSUBST_FILTER: "^LEO_"          # only substitute our variables, not $host etc.
+    volumes:
+      - ./services/nginx/templates:/etc/nginx/templates:ro
+      - ./services/nginx/leo_proxy.conf:/etc/nginx/leo_proxy.conf:ro
+      - ./services/nginx/entrypoint.d/40-leo-certs.sh:/docker-entrypoint.d/40-leo-certs.sh:ro
+      - edge-certs:/etc/leo-certs:ro
+      - edge-webroot:/var/www/certbot:ro
+    networks: [frontend]
+    depends_on:
+      open-webui: { condition: service_healthy }
+      certbot:    { condition: service_started }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -S -O /dev/null --header \"Host: $$LEO_EDGE_DOMAIN\" http://127.0.0.1/ 2>&1 | grep -q ' 301'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  certbot:
+    <<: *common
+    profiles: [edge]
+    image: certbot/certbot:${CERTBOT_VERSION}
+    entrypoint: ["/bin/sh", "/leo/run.sh"]
+    environment:
+      LEO_EDGE_DOMAIN: ${LEO_EDGE_DOMAIN}
+      LEO_EDGE_EMAIL: ${LEO_EDGE_EMAIL:-}
+      LEO_EDGE_STAGING: ${LEO_EDGE_STAGING:-false}
+    volumes:
+      - ./services/certbot/run.sh:/leo/run.sh:ro
+      - edge-certs:/etc/leo-certs
+      - edge-webroot:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+    networks: [egress]
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /etc/leo-certs/fullchain.pem"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  open-webui:
+    <<: *common
+    image: ghcr.io/open-webui/open-webui:${OPENWEBUI_VERSION}
+    environment:
+      TZ: ${TZ}
+      WEBUI_NAME: Leo
+      WEBUI_URL: ${LEO_PUBLIC_URL:-https://${LEO_DOMAIN}}
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY}
+      WEBUI_ADMIN_EMAIL: ${WEBUI_ADMIN_EMAIL}
+      WEBUI_ADMIN_PASSWORD: ${WEBUI_ADMIN_PASSWORD}
+      WEBUI_ADMIN_NAME: ${WEBUI_ADMIN_NAME}
+      ENABLE_SIGNUP: "false"
+      DATABASE_URL: postgresql://openwebui:${OPENWEBUI_DB_PASSWORD}@postgres:5432/openwebui
+      VECTOR_DB: pgvector
+      PGVECTOR_DB_URL: postgresql://openwebui:${OPENWEBUI_DB_PASSWORD}@postgres:5432/openwebui
+      ENABLE_OLLAMA_API: "false"
+      OPENAI_API_BASE_URL: http://leo-llm:8080/v1
+      OPENAI_API_KEY: ${LLM_API_KEY}
+      DEFAULT_MODELS: leo-study
+      TASK_MODEL_EXTERNAL: leo
+      ENABLE_TAGS_GENERATION: "false"
+      ENABLE_FOLLOW_UP_GENERATION: "false"
+      ENABLE_AUTOCOMPLETE_GENERATION: "false"
+      ENABLE_WEB_SEARCH: "true"
+      WEB_SEARCH_ENGINE: searxng
+      SEARXNG_QUERY_URL: http://searxng:8080/search
+      WEB_SEARCH_RESULT_COUNT: "5"
+      WEB_SEARCH_CONCURRENT_REQUESTS: "2"
+      RAG_EMBEDDING_ENGINE: openai
+      RAG_EMBEDDING_MODEL: leo-embed
+      RAG_OPENAI_API_BASE_URL: http://leo-embed:8080/v1
+      RAG_OPENAI_API_KEY: ${EMBED_API_KEY}
+      RAG_EMBEDDING_BATCH_SIZE: "32"
+      ENABLE_RAG_HYBRID_SEARCH: "true"
+      RAG_RERANKING_MODEL: ${RAG_RERANKING_MODEL}
+      RAG_TOP_K: ${RAG_TOP_K}
+      RAG_TOP_K_RERANKER: ${RAG_TOP_K_RERANKER}
+      CHUNK_SIZE: ${CHUNK_SIZE}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP}
+      ENABLE_CODE_INTERPRETER: "true"
+      RESET_CONFIG_ON_START: ${RESET_CONFIG_ON_START:-false}   # only `make reset-config` sets this
+    volumes:
+      - openwebui-data:/app/backend/data
+    networks: [frontend, backend, egress]
+    depends_on:
+      postgres:  { condition: service_healthy }
+      leo-embed: { condition: service_healthy }
+      searxng:   { condition: service_started }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10m          # first boot downloads the reranker (~2.2 GB)
+
+  postgres:
+    <<: *common
+    image: pgvector/pgvector:${PGVECTOR_TAG}
+    environment:
+      TZ: ${TZ}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      OPENWEBUI_DB_PASSWORD: ${OPENWEBUI_DB_PASSWORD}
+      LEO_MEMORY_DB_PASSWORD: ${LEO_MEMORY_DB_PASSWORD}
+      LEO_RECONCILE_DB_PASSWORD: ${LEO_RECONCILE_DB_PASSWORD}
+    command: ["postgres", "-c", "shared_buffers=512MB", "-c", "max_connections=100"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./services/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  searxng:
+    <<: *common
+    image: searxng/searxng:${SEARXNG_VERSION}
+    environment:
+      TZ: ${TZ}
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+      FORCE_OWNERSHIP: "false"      # settings.yml is a read-only bind mount; never chown repo files
+    volumes:
+      - ./services/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    networks: [egress]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  leo-llm:
+    <<: *common
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMACPP_CUDA_TAG}
+    entrypoint: ["/bin/sh", "/leo/entrypoint.sh"]
+    environment:
+      TZ: ${TZ}
+      LLAMA_API_KEY: ${LLM_API_KEY}                    # keeps the key out of `ps`
+      LEO_MODEL_FILE: ${LEO_MODEL_FILE}
+      LEO_MMPROJ_FILE: ${LEO_MMPROJ_FILE}
+      LEO_MMPROJ_ON_GPU: ${LEO_MMPROJ_ON_GPU}
+      LEO_N_CPU_MOE: ${LEO_N_CPU_MOE}
+      LEO_CTX: ${LEO_CTX}
+      LEO_PARALLEL: ${LEO_PARALLEL}
+      LEO_THREADS: ${LEO_THREADS}
+      LEO_UBATCH: ${LEO_UBATCH}
+      LEO_THINK_DEFAULT: ${LEO_THINK_DEFAULT}
+      LEO_REASONING_BUDGET: ${LEO_REASONING_BUDGET}
+      LEO_MTP: ${LEO_MTP}
+      LEO_MTP_DRAFT_MAX: ${LEO_MTP_DRAFT_MAX}
+      LEO_EXTRA_ARGS: ${LEO_EXTRA_ARGS}
+    volumes:
+      - ${LEO_DATA_DIR}/models:/models:ro
+      - ./services/llm/entrypoint.sh:/leo/entrypoint.sh:ro
+    networks: [backend]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 10m
+
+  leo-embed:
+    <<: *common
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMACPP_CPU_TAG}
+    environment:
+      TZ: ${TZ}
+      LLAMA_API_KEY: ${EMBED_API_KEY}
+    command: >
+      --host 0.0.0.0 --port 8080
+      --model /models/${EMBED_MODEL_FILE}
+      --alias leo-embed
+      --embedding --pooling last
+      --ctx-size 8192 --batch-size 8192 --ubatch-size 8192
+      --threads ${EMBED_THREADS}
+    volumes:
+      - ${LEO_DATA_DIR}/models:/models:ro
+    networks: [backend]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  leo-memory:
+    <<: *common
+    build:
+      context: ./services/memory
+      target: runtime
+      args: { PYTHON_VERSION: "${PYTHON_VERSION}" }
+    image: leo/memory:local
+    command: ["uvicorn", "leo_memory.api:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+    environment: &memory-env
+      TZ: ${TZ}
+      DATABASE_URL: postgresql://leo_memory:${LEO_MEMORY_DB_PASSWORD}@postgres:5432/leo_memory
+      RECONCILE_DATABASE_URL: postgresql://leo_reconcile:${LEO_RECONCILE_DB_PASSWORD}@postgres:5432/openwebui
+      LEO_MEMORY_TOKEN: ${LEO_MEMORY_TOKEN}
+      LLM_BASE_URL: http://leo-llm:8080/v1
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_MODEL: leo
+      EMBED_BASE_URL: http://leo-embed:8080/v1
+      EMBED_API_KEY: ${EMBED_API_KEY}
+      EMBED_DIM: ${EMBED_DIM}
+      MEMORY_IDLE_SECONDS: ${MEMORY_IDLE_SECONDS}
+      MEMORY_MAX_WAIT_SECONDS: ${MEMORY_MAX_WAIT_SECONDS}
+      MEMORY_SUMMARY_MAX_WORDS: ${MEMORY_SUMMARY_MAX_WORDS}
+      MEMORY_RECALL_TOP_K: ${MEMORY_RECALL_TOP_K}
+      MEMORY_MAX_INJECT_CHARS: ${MEMORY_MAX_INJECT_CHARS}
+      MEMORY_MAX_INPUT_CHARS: ${MEMORY_MAX_INPUT_CHARS}
+      MEMORY_RETENTION_DAYS: ${MEMORY_RETENTION_DAYS}
+    networks: [backend]
+    depends_on:
+      postgres:  { condition: service_healthy }
+      leo-embed: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  leo-memory-worker:
+    <<: *common
+    image: leo/memory:local
+    pull_policy: never          # built by the leo-memory service
+    command: ["python", "-m", "leo_memory.worker"]
+    environment: *memory-env
+    networks: [backend]
+    depends_on:
+      leo-memory: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os,sys; sys.exit(0 if any(b'leo_memory.worker' in open(f'/proc/{p}/cmdline','rb').read() for p in os.listdir('/proc') if p.isdigit()) else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── one-shot jobs (profiles) ──────────────────────────────────
+  models-fetch:
+    profiles: [tools]
+    image: python:${PYTHON_VERSION}-slim
+    volumes:
+      - ${LEO_DATA_DIR}/models:/models
+      - ./scripts/fetch-models.sh:/fetch-models.sh:ro
+    env_file: [.env]
+    entrypoint: ["/bin/bash", "/fetch-models.sh"]
+    networks: [egress]
+
+  bootstrap:
+    profiles: [tools]
+    build:
+      context: ./services/bootstrap
+      args: { PYTHON_VERSION: "${PYTHON_VERSION}" }
+    image: leo/bootstrap:local
+    env_file: [.env]
+    environment:
+      WEBUI_INTERNAL_URL: http://open-webui:8080
+      MEMORY_INTERNAL_URL: http://leo-memory:8000
+    volumes:
+      - ./services/openwebui:/provision:ro
+      - ./docs:/docs:ro                                 # reads docs/LATEX.md for the chosen math style
+    networks: [backend]
+
+  ui-test:
+    profiles: [tools]
+    build:
+      context: ./tests/ui
+      args: { PLAYWRIGHT_TAG: "${PLAYWRIGHT_TAG}" }
+    image: leo/ui-test:local
+    working_dir: /tests
+    env_file: [.env]
+    environment:
+      LEO_UI_URL: http://open-webui:8080                # same frontend bundle as via Caddy
+      LEO_MEMORY_URL: http://leo-memory:8000
+    volumes:
+      - ./tests/ui:/tests
+      - ./docs:/docs
+      - ./services/openwebui/functions:/functions:ro     # normalize_math for the render matrix
+    ipc: host                                            # Chromium needs more than 64 MB /dev/shm
+    networks: [backend]
+
+  # ── book ingestion (`make ingest`; leo-llm is stopped meanwhile to free VRAM) ──
+  surya-server:
+    profiles: [ingest]
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMACPP_CUDA_TAG}
+    command: >
+      --host 0.0.0.0 --port 8080
+      -m /models/surya/surya-2.gguf --mmproj /models/surya/surya-2-mmproj.gguf
+      -ngl 999 --parallel 8 --ctx-size 98304 --jinja
+      --alias datalab-to/surya-ocr-2
+    volumes:
+      - ${LEO_DATA_DIR}/models:/models:ro
+    networks: [backend]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  ingest:
+    profiles: [ingest]
+    build:
+      context: ./services/ingest
+      args: { PYTHON_VERSION: "${PYTHON_VERSION}" }
+    image: leo/ingest:local
+    env_file: [.env]
+    environment:
+      WEBUI_INTERNAL_URL: http://open-webui:8080
+      SURYA_INFERENCE_URL: http://surya-server:8080/v1
+      SURYA_INFERENCE_BACKEND: llamacpp
+      SURYA_INFERENCE_AUTOSTART: "false"
+      TORCH_DEVICE: cpu
+      HF_HOME: /root/.cache/huggingface
+    volumes:
+      - ./library:/library
+      - ${LEO_DATA_DIR}/ingest-cache:/root/.cache
+      - ./services/openwebui/functions:/normalizer:ro     # same normalize_math() as the LaTeX filter
+    networks: [backend, egress]
+
+  # ── leo-memory tests: throwaway pgvector DB on an isolated network (`make test-memory`) ──
+  memory-test-db:
+    profiles: [test]
+    image: pgvector/pgvector:${PGVECTOR_TAG}
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: leo_memory_test
+    tmpfs: [/var/lib/postgresql/data]
+    networks: [testnet]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d leo_memory_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  memory-test:
+    profiles: [test]
+    build:
+      context: ./services/memory
+      target: test
+      args: { PYTHON_VERSION: "${PYTHON_VERSION}" }
+    image: leo/memory:test
+    environment:
+      TEST_DATABASE_URL: postgresql://test:test@memory-test-db:5432/leo_memory_test
+    networks: [testnet]
+    depends_on:
+      memory-test-db: { condition: service_healthy }

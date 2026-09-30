@@ -1,0 +1,19 @@
+# Overlay used only by `make ingest`: while leo-llm is stopped, run leo-embed on the GPU.
+# Book chunks are embedded ~20× faster; the same model/alias keeps vectors compatible.
+services:
+  leo-embed:
+    image: ghcr.io/ggml-org/llama.cpp:${LLAMACPP_CUDA_TAG}
+    command: >
+      --host 0.0.0.0 --port 8080
+      --model /models/${EMBED_MODEL_FILE}
+      --alias leo-embed
+      --embedding --pooling last
+      --ctx-size 8192 --batch-size 8192 --ubatch-size 8192
+      --n-gpu-layers 999
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

@@ -1,0 +1,15 @@
+# Optional overlay for debugging and `make tune`:
+#   docker compose -f compose.yaml -f compose.debug.yaml up -d leo-llm
+# Exposes internal APIs on loopback only. Never bind these to 0.0.0.0.
+services:
+  leo-llm:
+    networks: [backend, debug]
+    ports:
+      - "127.0.0.1:18080:8080"
+  leo-memory:
+    networks: [backend, debug]
+    ports:
+      - "127.0.0.1:18000:8000"
+
+networks:
+  debug: {}

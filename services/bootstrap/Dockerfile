@@ -1,0 +1,8 @@
+ARG PYTHON_VERSION=3.12
+FROM python:${PYTHON_VERSION}-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_ROOT_USER_ACTION=ignore PIP_DISABLE_PIP_VERSION_CHECK=1
+RUN pip install "httpx==0.28.1" "psycopg[binary]==3.3.6"
+WORKDIR /app
+COPY bootstrap.py .
+USER nobody
+CMD ["python", "bootstrap.py"]

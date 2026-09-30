@@ -1,0 +1,38 @@
+{
+	admin off
+	# Browsers send no SNI when connecting to an IP address; that address's certificate is used then.
+	default_sni {$LEO_DEFAULT_SNI}
+	# http://<host>:8442 is answered with a redirect to https on the same port.
+	servers :8442 {
+		listener_wrappers {
+			http_redirect
+			tls
+		}
+	}
+}
+
+(leo_site) {
+	encode zstd gzip
+	request_body {
+		max_size 200MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	reverse_proxy open-webui:8080
+}
+
+# Local access (this machine only).
+{$LEO_DOMAIN} {
+	tls internal
+	import leo_site
+}
+
+# Remote access on the public address (published only when LEO_PUBLIC_BIND=0.0.0.0).
+https://{$LEO_PUBLIC_HOST}:8442, https://{$LEO_TAILSCALE_HOST}:8442 {
+	tls internal
+	import leo_site
+}

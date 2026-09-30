@@ -1,0 +1,61 @@
+# SearXNG settings for Leo. Only overrides; everything else comes from upstream defaults.
+# server.secret_key is overridden at runtime by the SEARXNG_SECRET environment variable.
+use_default_settings: true
+
+general:
+  instance_name: "Leo Search"
+
+server:
+  secret_key: "overridden-by-SEARXNG_SECRET"
+  limiter: false
+  public_instance: false
+  image_proxy: false
+
+search:
+  safe_search: 0
+  # json is required by Open WebUI's SearXNG integration.
+  formats:
+    - html
+    - json
+
+engines:
+  - name: wikipedia
+    disabled: false
+  - name: arxiv
+    disabled: false
+  - name: semantic scholar
+    disabled: false
+  - name: google scholar
+    disabled: false          # may be rate-limited
+  - name: openalex
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: brave
+    disabled: false
+  - name: startpage
+    disabled: false
+  - name: mojeek
+    disabled: false
+  - name: google
+    disabled: false
+  - name: stackoverflow
+    disabled: false
+  - name: math stackexchange
+    engine: stackexchange
+    shortcut: mse
+    api_site: 'math'
+    categories: [science, q&a]
+    disabled: false
+  - name: cs stackexchange
+    engine: stackexchange
+    shortcut: cse
+    api_site: 'cs'
+    categories: [science, q&a]
+    disabled: false
+  - name: mathoverflow
+    engine: stackexchange
+    shortcut: mo
+    api_site: 'mathoverflow.net'
+    categories: [science, q&a]
+    disabled: false
